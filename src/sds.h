@@ -47,6 +47,14 @@ struct __attribute__ ((__packed__)) sdshdr5 {
     unsigned char flags; /* 3 lsb of type, and 5 msb of string length */
     char buf[];
 };
+
+
+/*
+ * Note: char buf[] 在struct中“不占用空间” 因为他是内存连续的
+ * 例如 sizeof(sdshdr64) = 17 也就是8+8+1, 
+ * 但是如果将char buf[]替换成char *buf; 就会发生变化，
+ * 因为char *所指向的内存地址并不需要与struct结构中的前几个成员变量内存空间连续 
+ */
 struct __attribute__ ((__packed__)) sdshdr8 {
     uint8_t len; /* used */
     uint8_t alloc; /* excluding the header and null terminator */
