@@ -213,16 +213,25 @@ sds sdsMakeRoomFor(sds s, size_t addlen) {
     int hdrlen;
 
     /* Return ASAP if there is enough space left. */
+    /* 如果当前的sds可用空间大于需要增加的额外空间
+     * 以最快速度返回，无需进行任何额外操作*/
     if (avail >= addlen) return s;
 
+    /* 获取当前sds有效长度字节数 */
     len = sdslen(s);
+
+    /* 获取实际的sds结构指针 */
     sh = (char*)s-sdsHdrSize(oldtype);
+
+    /* 计算最终结果sds中buf所占用的字节数
+     * 二倍方式增长*/
     newlen = (len+addlen);
     if (newlen < SDS_MAX_PREALLOC)
         newlen *= 2;
     else
         newlen += SDS_MAX_PREALLOC;
 
+    /* 根据最终的buf字节数得到最终的sdshdr类型 */
     type = sdsReqType(newlen);
 
     /* Don't use type 5: the user is appending to the string and type 5 is
@@ -232,12 +241,17 @@ sds sdsMakeRoomFor(sds s, size_t addlen) {
 
     hdrlen = sdsHdrSize(type);
     if (oldtype==type) {
+        /* sdshdr结构不变的情况下直接realloc */
         newsh = s_realloc(sh, hdrlen+newlen+1);
         if (newsh == NULL) return NULL;
         s = (char*)newsh+hdrlen;
     } else {
         /* Since the header size changes, need to move the string forward,
          * and can't use realloc */
+        /* 因为sdshdr的头部信息结构变化，所以实际的buf[]存储在sdshdr结构中地址
+         * 增量迁移，所以不能使用realloc 
+         * 这里直接按照最终的sdshdr结构来申请空间
+         * 然后将对应的成员变量赋值 */
         newsh = s_malloc(hdrlen+newlen+1);
         if (newsh == NULL) return NULL;
         memcpy((char*)newsh+hdrlen, s, len+1);

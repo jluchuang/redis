@@ -56,9 +56,17 @@ struct __attribute__ ((__packed__)) sdshdr5 {
  * 因为char *所指向的内存地址并不需要与struct结构中的前几个成员变量内存空间连续 
  */
 struct __attribute__ ((__packed__)) sdshdr8 {
+    
+    // 主要记录buf[]中有效字节数
     uint8_t len; /* used */
+
+    // 记录buf[]已申请的内存字节数
     uint8_t alloc; /* excluding the header and null terminator */
+
+    // sdshdr8的标识，最低三位有效
     unsigned char flags; /* 3 lsb of type, 5 unused bits */
+
+    // 实际存储字符串的数组
     char buf[];
 };
 struct __attribute__ ((__packed__)) sdshdr16 {
