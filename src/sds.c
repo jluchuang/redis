@@ -269,7 +269,8 @@ sds sdsMakeRoomFor(sds s, size_t addlen) {
  * will require a reallocation.
  *
  * After the call, the passed sds string is no longer valid and all the
- * references must be substituted with the new pointer returned by the call. */
+ * references must be substituted with the new pointer returned by the call. 
+ * 实现上正好是sdsMakeRoomFor的逆操作*/
 sds sdsRemoveFreeSpace(sds s) {
     void *sh, *newsh;
     char type, oldtype = s[-1] & SDS_TYPE_MASK;
@@ -336,6 +337,8 @@ void *sdsAllocPtr(sds s) {
  * nread = read(fd, s+oldlen, BUFFER_SIZE);
  * ... check for nread <= 0 and handle it ...
  * sdsIncrLen(s, nread);
+ *
+ * sdsIncrLen和sdsMakeRoomFor是组合使用的，二者共同实现了sds的append
  */
 void sdsIncrLen(sds s, int incr) {
     unsigned char flags = s[-1];
@@ -351,6 +354,7 @@ void sdsIncrLen(sds s, int incr) {
         }
         case SDS_TYPE_8: {
             SDS_HDR_VAR(8,s);
+            //由于之前调用sdsIncreLen所以buf[]空间已经预分配好，这里不会出现sdshdr的type变化
             assert((incr >= 0 && sh->alloc-sh->len >= incr) || (incr < 0 && sh->len >= (unsigned int)(-incr)));
             len = (sh->len += incr);
             break;
@@ -382,7 +386,8 @@ void sdsIncrLen(sds s, int incr) {
  * the original length of the sds will be set to zero.
  *
  * if the specified length is smaller than the current length, no operation
- * is performed. */
+ * is performed. 
+ * 这里的grow 是指增加buf[]中的有效长度，*/
 sds sdsgrowzero(sds s, size_t len) {
     size_t curlen = sdslen(s);
 
@@ -400,7 +405,8 @@ sds sdsgrowzero(sds s, size_t len) {
  * end of the specified sds string 's'.
  *
  * After the call, the passed sds string is no longer valid and all the
- * references must be substituted with the new pointer returned by the call. */
+ * references must be substituted with the new pointer returned by the call. 
+ * 将指针t所指向的长度为len的内存自己追加copy到s的buf[]中*/
 sds sdscatlen(sds s, const void *t, size_t len) {
     size_t curlen = sdslen(s);
 
@@ -423,7 +429,8 @@ sds sdscat(sds s, const char *t) {
 /* Append the specified sds 't' to the existing sds 's'.
  *
  * After the call, the modified sds string is no longer valid and all the
- * references must be substituted with the new pointer returned by the call. */
+ * references must be substituted with the new pointer returned by the call. 
+ * 一系列的append函数的内部都调用了sdsMakeRoomFor，所以作为参数传递的s会失效*/
 sds sdscatsds(sds s, const sds t) {
     return sdscatlen(s, t, sdslen(t));
 }
