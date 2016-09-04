@@ -77,7 +77,8 @@ static inline char sdsReqType(size_t string_size) {
  *
  * You can print the string with printf() as there is an implicit \0 at the
  * end of the string. However the string is binary safe and can contain
- * \0 characters in the middle, as the length is stored in the sds header. */
+ * \0 characters in the middle, as the length is stored in the sds header. 
+ * ps:通过sdsnewlen创建的sds的sdshdr类型不可能出现SDS_TYPE_5*/
 sds sdsnewlen(const void *init, size_t initlen) {
     // 用于为sds申请内存空间
     void *sh;        
@@ -149,23 +150,27 @@ sds sdsnewlen(const void *init, size_t initlen) {
 }
 
 /* Create an empty (zero length) sds string. Even in this case the string
- * always has an implicit null term. */
+ * always has an implicit null term. 
+ * 创建一个buf长度为0的sds*/
 sds sdsempty(void) {
     return sdsnewlen("",0);
 }
 
-/* Create a new sds string starting from a null terminated C string. */
+/* Create a new sds string starting from a null terminated C string. 
+ * 新建一个sds，并以init指向的字节空间初始化*/
 sds sdsnew(const char *init) {
     size_t initlen = (init == NULL) ? 0 : strlen(init);
     return sdsnewlen(init, initlen);
 }
 
-/* Duplicate an sds string. */
+/* Duplicate an sds string. 
+ * 复制一个sds*/
 sds sdsdup(const sds s) {
     return sdsnewlen(s, sdslen(s));
 }
 
-/* Free an sds string. No operation is performed if 's' is NULL. */
+/* Free an sds string. No operation is performed if 's' is NULL. 
+ * 真正的释放一个sdshdr结构的内存不止是sdshdr内部的buf[]*/
 void sdsfree(sds s) {
     if (s == NULL) return;
     s_free((char*)s-sdsHdrSize(s[-1]));
@@ -459,7 +464,9 @@ sds sdscpy(sds s, const char *t) {
  * SDS_LLSTR_SIZE bytes.
  *
  * The function returns the length of the null-terminated string
- * representation stored at 's'. */
+ * representation stored at 's'. 
+ * 将长整型value转换为String形式存储，存储在s指向内存中，
+ * 返回转换后string的长度*/
 #define SDS_LLSTR_SIZE 21
 int sdsll2str(char *s, long long value) {
     char *p, aux;
@@ -492,7 +499,10 @@ int sdsll2str(char *s, long long value) {
     return l;
 }
 
-/* Identical sdsll2str(), but for unsigned long long type. */
+/* Identical sdsll2str(), but for unsigned long long type. 
+ * sdsll2str的特例
+ * 将无符号longlong转换为String
+ */
 int sdsull2str(char *s, unsigned long long v) {
     char *p, aux;
     size_t l;
@@ -524,6 +534,7 @@ int sdsull2str(char *s, unsigned long long v) {
 /* Create an sds string from a long long value. It is much faster than:
  *
  * sdscatprintf(sdsempty(),"%lld\n", value);
+ * 这个函数完整的实现了将longlong value转换为sds
  */
 sds sdsfromlonglong(long long value) {
     char buf[SDS_LLSTR_SIZE];
@@ -532,7 +543,8 @@ sds sdsfromlonglong(long long value) {
     return sdsnewlen(buf,len);
 }
 
-/* Like sdscatprintf() but gets va_list instead of being variadic. */
+/* Like sdscatprintf() but gets va_list instead of being variadic. 
+ * 将ap中的argument按照fmt中规定的形式转化成字符串拼接在s之后*/
 sds sdscatvprintf(sds s, const char *fmt, va_list ap) {
     va_list cpy;
     char staticbuf[1024], *buf = staticbuf, *t;
@@ -610,6 +622,7 @@ sds sdscatprintf(sds s, const char *fmt, ...) {
  * %u - unsigned int
  * %U - 64 bit unsigned integer (unsigned long long, uint64_t)
  * %% - Verbatim "%" character.
+ * 实现了sdscatprintf的fmt子集，主要是出于速度考虑
  */
 sds sdscatfmt(sds s, char const *fmt, ...) {
     size_t initlen = sdslen(s);
@@ -826,7 +839,11 @@ int sdscmp(const sds s1, const sds s2) {
  * This version of the function is binary-safe but
  * requires length arguments. sdssplit() is just the
  * same function but for zero-terminated strings.
- */
+ * 对普通cstring s进行字符串切分，返回一个sds数组 
+ * 切分标识sep可以是一个长度为seplen的字符串，思路比较简单
+ * 就是每次匹配到切分标识，调用sdsnewslen进行tokennize操作
+ * 期间用到了realloc进行动态内存分配
+ * /
 sds *sdssplitlen(const char *s, int len, const char *sep, int seplen, int *count) {
     int elements = 0, slots = 5, start = 0, j;
     sds *tokens;
@@ -876,7 +893,9 @@ cleanup:
     }
 }
 
-/* Free the result returned by sdssplitlen(), or do nothing if 'tokens' is NULL. */
+/* Free the result returned by sdssplitlen(), or do nothing if 'tokens' is NULL.
+ * 实际上就是对一个sds*的指针数组进行free操作，
+ * 在操作过程中需要考虑到深度内存释放防止内存泄漏 */
 void sdsfreesplitres(sds *tokens, int count) {
     if (!tokens) return;
     while(count--)
