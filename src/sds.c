@@ -843,7 +843,7 @@ int sdscmp(const sds s1, const sds s2) {
  * 切分标识sep可以是一个长度为seplen的字符串，思路比较简单
  * 就是每次匹配到切分标识，调用sdsnewslen进行tokennize操作
  * 期间用到了realloc进行动态内存分配
- * /
+ */
 sds *sdssplitlen(const char *s, int len, const char *sep, int seplen, int *count) {
     int elements = 0, slots = 5, start = 0, j;
     sds *tokens;
