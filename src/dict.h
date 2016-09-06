@@ -44,40 +44,88 @@
 /* Unused arguments generate annoying warnings... */
 #define DICT_NOTUSED(V) ((void) V)
 
+/*
+ * redis的map（字典）结构内部节点，
+ * redis的字典采用邻接表来实现避碰的策略
+ */
 typedef struct dictEntry {
+    // key 
     void *key;
+
+    // value 使用联合体
     union {
         void *val;
         uint64_t u64;
         int64_t s64;
         double d;
     } v;
+
+    // 当key的hash值相同的时候采用邻接表来实现避碰的next节点指针
     struct dictEntry *next;
 } dictEntry;
 
+/*
+ * 针对dictEntry进行操作的一系列函数指针的结构体
+ *
+ * */
 typedef struct dictType {
+    // key值hash函数指针
     unsigned int (*hashFunction)(const void *key);
+
+    // key值复制方法函数指针
     void *(*keyDup)(void *privdata, const void *key);
+
+    // valuel复制方法函数指针
     void *(*valDup)(void *privdata, const void *obj);
+
+    // key值匹配方法函数指针
     int (*keyCompare)(void *privdata, const void *key1, const void *key2);
+    
+    // key的空间释放函数指针
     void (*keyDestructor)(void *privdata, void *key);
+
+    // value空间释放函数指针
     void (*valDestructor)(void *privdata, void *obj);
 } dictType;
 
 /* This is our hash table structure. Every dictionary has two of this as we
- * implement incremental rehashing, for the old to the new table. */
+ * implement incremental rehashing, for the old to the new table. 
+ *
+ * 字典内部的实际hashtable存储结构
+ *
+ * */
 typedef struct dictht {
+    // 邻接表hash table
     dictEntry **table;
+
+    // 当前的hash table的bucket(桶)数
     unsigned long size;
+
+    // 掩码，在键值hash后映射到hash table的对应bucket时使用
     unsigned long sizemask;
+
+    // hash table中目前有效的键值对数量
     unsigned long used;
 } dictht;
 
+
+/* 字典结构定义
+ * 需要注意的是里面包括两个hash table用于实现增量rehash
+ * */
 typedef struct dict {
+    // 多当前字典中所有键值对结构进行操作的函数指针结构体
     dictType *type;
+
+    // 
     void *privdata;
+
+    // 两个hash table用于实现增量rehash
     dictht ht[2];
+
+    // 当前rehash过程中进行到的bucket位置
     long rehashidx; /* rehashing not in progress if rehashidx == -1 */
+
+    // 迭代器
     unsigned long iterators; /* number of iterators currently running */
 } dict;
 

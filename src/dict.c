@@ -155,7 +155,13 @@ unsigned int dictGenCaseHashFunction(const unsigned char *buf, int len) {
 /* ----------------------------- API implementation ------------------------- */
 
 /* Reset a hash table already initialized with ht_init().
- * NOTE: This function should only be called by ht_destroy(). */
+ * NOTE: This function should only be called by ht_destroy().
+ * 上面的NOTE应该是有问题的，这个函数在很多api种都被调用了
+ * 这里需要注意的是这个函数里面没有任何的内存释放操作
+ * 所有的操作只是赋值，所以要保证在针对具体的hash table进行
+ * reset操作的时候ht原来的内部的table所指内存空间已经被妥善处理
+ * 1. 赋值给其他可引用指针
+ * 2. free掉*/
 static void _dictReset(dictht *ht)
 {
     ht->table = NULL;
@@ -241,33 +247,57 @@ int dictExpand(dict *d, unsigned long size)
  * since part of the hash table may be composed of empty spaces, it is not
  * guaranteed that this function will rehash even a single bucket, since it
  * will visit at max N*10 empty buckets in total, otherwise the amount of
- * work it does would be unbound and the function may block for a long time. */
+ * work it does would be unbound and the function may block for a long time. 
+ *
+ * 这个函数只是dict rehash过程中的一步
+ * 在每一步dict rehash中， 最多遍历n*10个空bucket（桶）
+ * 由于hash table的实现采用的是邻接链表的避碰策略， 所以每次这个函数的调用可能
+ * 会遍历很多空桶， 甚至只实现了对其中一个桶的邻接链表中的所有节点进行rehash*/
 int dictRehash(dict *d, int n) {
+
+    // 最多遍历空桶的次数
     int empty_visits = n*10; /* Max number of empty buckets to visit. */
     if (!dictIsRehashing(d)) return 0;
 
+    // 如果当前遍历的空桶数量<empty_visits 
+    // 并且还存在有效的键值对没有完成rehash
+    // 继续当前这一步的rehash过程
     while(n-- && d->ht[0].used != 0) {
         dictEntry *de, *nextde;
 
         /* Note that rehashidx can't overflow as we are sure there are more
-         * elements because ht[0].used != 0 */
-        assert(d->ht[0].size > (unsigned long)d->rehashidx);
+         * elements because ht[0].used != 0 
+         * 从当前的rehash index 位置向后查找到第一个非空的桶
+         * 注意这里并么有判断rehash index是否小于size来保证不越界
+         * 因为在while循环入口判断中dictht的used != 0所以这里肯定不会越界*/
         while(d->ht[0].table[d->rehashidx] == NULL) {
             d->rehashidx++;
+
+            // 当前这一步的rehash过程遍历了太多的空桶，返回1表示rehash过程仍在进行
             if (--empty_visits == 0) return 1;
         }
+
+        // 找到第一个非空的键值hash对应的index临街链表
         de = d->ht[0].table[d->rehashidx];
-        /* Move all the keys in this bucket from the old to the new hash HT */
+
+        /* Move all the keys in this bucket from the old to the new hash HT
+         * 对de所指向的临街链表中的所有键值对进行rehash
+         */
         while(de) {
             unsigned int h;
-
+            // 记录当前键值对在对应邻接表中的next节点
             nextde = de->next;
+
             /* Get the index in the new hash table */
             h = dictHashKey(d, de->key) & d->ht[1].sizemask;
+
+            // 每次在新的hash table邻接表中插入节点都是从表头插入
             de->next = d->ht[1].table[h];
             d->ht[1].table[h] = de;
             d->ht[0].used--;
             d->ht[1].used++;
+
+            // 更新de到下一个需要rehash的键值对
             de = nextde;
         }
         d->ht[0].table[d->rehashidx] = NULL;
@@ -276,9 +306,17 @@ int dictRehash(dict *d, int n) {
 
     /* Check if we already rehashed the whole table... */
     if (d->ht[0].used == 0) {
+        // 如果真个hash table都已经rehash完成
+        // 释放原有的hash table所占用的内存
         zfree(d->ht[0].table);
+
+        // 将有效的hash table重新复制给ht[0]
         d->ht[0] = d->ht[1];
+
+        // 重置ht[1]的值
         _dictReset(&d->ht[1]);
+
+        // 设置hash index值为-1
         d->rehashidx = -1;
         return 0;
     }
