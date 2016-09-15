@@ -67,7 +67,8 @@ int zslLexValueGteMin(sds value, zlexrangespec *spec);
 int zslLexValueLteMax(sds value, zlexrangespec *spec);
 
 /* Create a skiplist node with the specified number of levels.
- * The SDS string 'ele' is referenced by the node after the call. */
+ * The SDS string 'ele' is referenced by the node after the call.
+ * 创建一个指定level层的节点，节点的score和ele都按指定的参数赋值 */
 zskiplistNode *zslCreateNode(int level, double score, sds ele) {
     zskiplistNode *zn =
         zmalloc(sizeof(*zn)+level*sizeof(struct zskiplistLevel));
@@ -76,7 +77,8 @@ zskiplistNode *zslCreateNode(int level, double score, sds ele) {
     return zn;
 }
 
-/* Create a new skiplist. */
+/* Create a new skiplist.
+ * 创建一个新的skiplist */
 zskiplist *zslCreate(void) {
     int j;
     zskiplist *zsl;
@@ -84,11 +86,15 @@ zskiplist *zslCreate(void) {
     zsl = zmalloc(sizeof(*zsl));
     zsl->level = 1;
     zsl->length = 0;
+
+    // zskiplist 最多有32层，即ZSKIPLIST_MAXLEVEL = 32
     zsl->header = zslCreateNode(ZSKIPLIST_MAXLEVEL,0,NULL);
+    
     for (j = 0; j < ZSKIPLIST_MAXLEVEL; j++) {
         zsl->header->level[j].forward = NULL;
         zsl->header->level[j].span = 0;
     }
+    
     zsl->header->backward = NULL;
     zsl->tail = NULL;
     return zsl;
@@ -96,13 +102,15 @@ zskiplist *zslCreate(void) {
 
 /* Free the specified skiplist node. The referenced SDS string representation
  * of the element is freed too, unless node->ele is set to NULL before calling
- * this function. */
+ * this function. 
+ * 释放指定的zskiplist*/
 void zslFreeNode(zskiplistNode *node) {
     sdsfree(node->ele);
     zfree(node);
 }
 
-/* Free a whole skiplist. */
+/* Free a whole skiplist.
+ * 销毁整个skiplist */
 void zslFree(zskiplist *zsl) {
     zskiplistNode *node = zsl->header->level[0].forward, *next;
 
@@ -118,7 +126,9 @@ void zslFree(zskiplist *zsl) {
 /* Returns a random level for the new skiplist node we are going to create.
  * The return value of this function is between 1 and ZSKIPLIST_MAXLEVEL
  * (both inclusive), with a powerlaw-alike distribution where higher
- * levels are less likely to be returned. */
+ * levels are less likely to be returned. 
+ * 为我们将要创建的节点返回一个随机的level 
+ * 返回的level结果符合幂等分布，以保证返回越高层level结果的概率越小*/
 int zslRandomLevel(void) {
     int level = 1;
     while ((random()&0xFFFF) < (ZSKIPLIST_P * 0xFFFF))

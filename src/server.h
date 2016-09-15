@@ -713,10 +713,16 @@ struct sharedObjectsStruct {
     sds minstring, maxstring;
 };
 
-/* ZSETs use a specialized version of Skiplists */
+/* ZSETs use a specialized version of Skiplists 
+ * Redis的跳表实现， 
+ * ZSETs Offer the ability to score a mapping of  members to scores
+ * */
 typedef struct zskiplistNode {
-    sds ele;
+    // 使用sds字串
+    sds ele;     
+    // 分数的double表示
     double score;
+
     struct zskiplistNode *backward;
     struct zskiplistLevel {
         struct zskiplistNode *forward;
@@ -725,8 +731,14 @@ typedef struct zskiplistNode {
 } zskiplistNode;
 
 typedef struct zskiplist {
+
+    // 当前链表的头和尾
     struct zskiplistNode *header, *tail;
+
+    // skiplist 的长度
     unsigned long length;
+
+    // skiplist 对应的level
     int level;
 } zskiplist;
 
